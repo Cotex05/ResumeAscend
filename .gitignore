@@ -1,0 +1,74 @@
+# Python-specific
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# env secrets
+*.env
+
+.local/
+
+.replit
+
+
+
+# Streamlit-specific
+.streamlit/cache/
+.streamlit/secrets.toml
+*.log
+
+# macOS-specific
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Virtual environment
+*.venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Miscellaneous
+*.bak
+*.swp
+*~
+*.csv
+*.json
+*.txt
+*.db
+*.sqlite
+*.sqlite3
+
+# Ignore sensitive or large data files
+data/
+*.zip
+*.tar.gz
+*.rar
+
+# Keep essential Streamlit files
+!.streamlit/config.toml
+!requirements.txt
+!*.py
+!README.md
