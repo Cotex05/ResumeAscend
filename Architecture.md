@@ -1,4 +1,4 @@
-# AI Resume Screening Tool
+# Application Architecture
 
 ## Overview
 
