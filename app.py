@@ -20,7 +20,6 @@ from utils import (
     create_score_chart,
     create_category_breakdown
 )
-from utils.rag_qa import create_resume_rag
 
 # Configure page
 st.set_page_config(
@@ -119,6 +118,8 @@ def analyze_resume(uploaded_file):
             
             # Initialize RAG pipeline for Q&A
             try:
+                from utils.rag_qa import create_resume_rag
+
                 rag_chain = create_resume_rag(resume_text, Config.get_groq_api_key())
                 if rag_chain:
                     SessionManager.set('rag_chain', rag_chain)

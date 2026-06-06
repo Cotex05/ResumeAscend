@@ -1,14 +1,20 @@
 [project]
-name = "repl-nix-workspace"
+name = "resume-ascend"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-powered resume analysis with ATS scoring and RAG-based Q&A"
 requires-python = ">=3.11"
 dependencies = [
+    "faiss-cpu>=1.7.4",
     "groq>=0.31.0",
+    "langchain>=0.1.0",
+    "langchain-community>=0.0.1",
+    "langchain-groq>=0.0.1",
+    "langchain-text-splitters>=0.0.1",
     "pandas>=2.3.1",
     "plotly>=6.2.0",
     "pypdf2>=3.0.1",
     "python-docx>=1.2.0",
     "python-dotenv>=1.1.1",
-    "streamlit>=1.48.0",
+    "sentence-transformers>=2.2.0",
+    "streamlit>=1.50.0",
 ]
