@@ -18,7 +18,10 @@ class SessionManager:
             'ai_strengths_analysis': None,
             'dynamic_recommendations': None,
             'resume_text': None,
-            'show_detailed_analysis': False
+            'show_detailed_analysis': False,
+            'rag_chain': None,
+            'rag_initialized': False,
+            'qa_history': []
         }
         
         for key, default_value in defaults.items():
@@ -42,12 +45,15 @@ class SessionManager:
             'ai_strengths_analysis',
             'dynamic_recommendations',
             'resume_text',
-            'show_detailed_analysis'
+            'show_detailed_analysis',
+            'rag_chain',
+            'rag_initialized',
+            'qa_history'
         ]
         
         for key in reset_keys:
             if key in st.session_state:
-                st.session_state[key] = None if key != 'analysis_complete' and key != 'show_detailed_analysis' else False
+                st.session_state[key] = None if key not in ['analysis_complete', 'show_detailed_analysis', 'rag_initialized', 'qa_history'] else (False if key != 'qa_history' else [])
     
     @staticmethod
     def get(key: str, default: Any = None) -> Any:

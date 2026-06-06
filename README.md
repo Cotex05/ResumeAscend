@@ -10,16 +10,21 @@ A professional AI-powered resume analysis tool that evaluates ATS compatibility 
 - **Interactive Visualizations** - Professional charts and gauge displays
 - **Detailed Analysis** - Specific weak points identification and enhancement suggestions
 - **Multi-Format Support** - PDF and DOCX file processing
+- **💬 RAG-Based Q&A** - Ask natural language questions about your resume and get instant AI-powered answers
+
+**For detailed feature documentation, see [FEATURES.md](FEATURES.md)**
 
 ## Quick Start
 
 1. **Environment Setup**
+
    ```bash
    # Set your Groq API key as an environment variable
    export GROQ_API_KEY=your_api_key_here
    ```
 
 2. **Local Installation**
+
    ```bash
    git clone <repository-url>
    cd ai-resume-screening-tool
@@ -36,6 +41,7 @@ A professional AI-powered resume analysis tool that evaluates ATS compatibility 
 ## Architecture
 
 ### Modular Design
+
 ```
 ├── app.py                 # Main application entry point
 ├── config.py             # Configuration and environment variables
@@ -46,16 +52,16 @@ A professional AI-powered resume analysis tool that evaluates ATS compatibility 
 │   ├── text_extractor.py     # File processing (PDF/DOCX)
 │   ├── ats_analyzer.py       # ATS compatibility analysis
 │   ├── groq_analyzer.py      # AI-powered analysis
+│   ├── rag_qa.py             # RAG Q&A system (NEW)
 │   └── visualizations.py     # Chart generation
 └── .streamlit/          # Streamlit configuration
-    └── config.toml
-```
 
 ### Key Components
 
 - **Configuration Management** - Centralized settings and environment variables
 - **Session Management** - Clean state handling for Streamlit
 - **Error Handling** - Robust error management with user-friendly messages
+- **RAG Q&A System** - LangChain-based semantic search with FAISS
 - **Modular Utilities** - Separated concerns for maintainability
 
 ## Configuration
@@ -69,6 +75,7 @@ Optional configuration (in `config.py`):
 
 ## Dependencies
 
+**Core Dependencies:**
 - **streamlit** - Web application framework
 - **groq** - AI model integration
 - **plotly** - Interactive visualizations
@@ -77,13 +84,38 @@ Optional configuration (in `config.py`):
 - **python-docx** - Word document processing
 - **python-dotenv** - Environment variable management
 
+**RAG Q&A Dependencies:**
+- **langchain** - RAG framework
+- **langchain-community** - LangChain integrations
+- **langchain-groq** - Groq LLM integration
+- **faiss-cpu** - Vector similarity search
+- **sentence-transformers** - Text embeddings
+
+All dependencies listed in `requirements.txt`
+
 ## Usage
 
 1. Upload your resume (PDF or DOCX format)
 2. Click "Analyze Resume" to start the analysis
 3. View comprehensive ATS compatibility scores
 4. Review AI-generated recommendations and insights
-5. Access detailed analysis for specific improvement suggestions
+5. **Ask questions about your resume** using the new Q&A interface
+6. Access detailed analysis for specific improvement suggestions
+
+### Q&A Examples
+
+```
+
+Q: "What is my degree and CGPA?"
+A: "According to your resume, you have a Bachelor's degree in Computer
+Science from MIT with a CGPA of 3.9."
+
+Q: "What programming languages do I know?"
+A: "You are proficient in Python, JavaScript, Java, and C++."
+
+```
+
+For detailed usage and features, see [FEATURES.md](FEATURES.md)
 
 ## Development
 
@@ -99,3 +131,4 @@ The application follows clean architecture principles:
 - API keys are managed through environment variables
 - No sensitive data is stored in the codebase
 - Secure file processing with size and type validation
+```

@@ -20,6 +20,7 @@ from utils import (
     create_score_chart,
     create_category_breakdown
 )
+from utils.rag_qa import create_resume_rag
 
 # Configure page
 st.set_page_config(
@@ -114,6 +115,20 @@ def analyze_resume(uploaded_file):
             SessionManager.set('personal_details', personal_details)
             SessionManager.set('ai_analysis', ai_analysis)
             SessionManager.set('dynamic_recommendations', dynamic_recommendations)
+            SessionManager.set('resume_text', resume_text)
+            
+            # Initialize RAG pipeline for Q&A
+            try:
+                rag_chain = create_resume_rag(resume_text, Config.get_groq_api_key())
+                if rag_chain:
+                    SessionManager.set('rag_chain', rag_chain)
+                    SessionManager.set('rag_initialized', True)
+                else:
+                    st.warning("⚠️ RAG Q&A system could not be initialized. Skipping this feature.")
+            except Exception as e:
+                print(f"Warning: RAG initialization failed: {e}")
+                st.warning("⚠️ RAG Q&A system could not be initialized. Skipping this feature.")
+            
             SessionManager.set('analysis_complete', True)
             
             st.success("✅ Analysis completed successfully!")
@@ -183,10 +198,73 @@ def display_results():
             for strength in strengths:
                 st.success(f"✓ {strength}")
     
+    # RAG-based Q&A section
+    if SessionManager.get('rag_initialized'):
+        display_resume_qa()
+    
     # Detailed analysis button
     if st.button("🔍 Show Detailed Analysis"):
         SessionManager.set('show_detailed_analysis', True)
         st.rerun()
+
+def display_resume_qa():
+    """Display resume Q&A interface using RAG"""
+    st.subheader("💬 Ask Questions About Your Resume")
+    st.markdown("*Ask any questions about your resume and get instant answers based on your resume content*")
+    
+    # Create columns for input
+    col1, col2 = st.columns([4, 1])
+    
+    with col1:
+        user_question = st.text_input(
+            "Ask a question about your resume",
+            placeholder="Example: What is my last education? What programming languages do I know?",
+            key="resume_qa_input"
+        )
+    
+    with col2:
+        ask_button = st.button("🔍 Ask", use_container_width=True)
+    
+    # Process question
+    if ask_button and user_question:
+        rag_chain = SessionManager.get('rag_chain')
+        
+        if rag_chain:
+            with st.spinner("Analyzing your resume..."):
+                result = rag_chain.query(user_question)
+                
+                if result:
+                    # Display answer
+                    st.info(f"**Q:** {user_question}")
+                    st.success(f"**A:** {result['answer']}")
+                    
+                    # Show confidence level
+                    confidence = result.get('confidence', 'Low')
+                    if confidence == "High":
+                        st.caption(f"✅ Confidence: {confidence} (Based on resume content)")
+                    else:
+                        st.caption(f"⚠️ Confidence: {confidence} (Limited matching content)")
+                    
+                    # Store in history
+                    qa_history = SessionManager.get('qa_history', [])
+                    qa_history.append({
+                        'question': user_question,
+                        'answer': result['answer']
+                    })
+                    SessionManager.set('qa_history', qa_history)
+                else:
+                    st.error("Unable to process your question. Please try again.")
+        else:
+            st.error("RAG system not initialized. Please restart the analysis.")
+    
+    # Display Q&A history
+    qa_history = SessionManager.get('qa_history', [])
+    if qa_history:
+        with st.expander("📋 Q&A History", expanded=False):
+            for i, qa_pair in enumerate(qa_history, 1):
+                st.markdown(f"**Q{i}:** {qa_pair['question']}")
+                st.markdown(f"**A{i}:** {qa_pair['answer']}")
+                st.divider()
 
 def display_detailed_analysis():
     """Display detailed weak points analysis"""
