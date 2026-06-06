@@ -19,6 +19,7 @@ class SessionManager:
             'dynamic_recommendations': None,
             'resume_text': None,
             'show_detailed_analysis': False,
+            'detailed_analysis': None,
             'rag_chain': None,
             'rag_initialized': False,
             'qa_history': []
@@ -46,6 +47,7 @@ class SessionManager:
             'dynamic_recommendations',
             'resume_text',
             'show_detailed_analysis',
+            'detailed_analysis',
             'rag_chain',
             'rag_initialized',
             'qa_history'
