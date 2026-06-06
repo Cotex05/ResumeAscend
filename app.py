@@ -133,6 +133,9 @@ def upload_section():
             unsafe_allow_html=True,
         )
 
+        if uploaded_file and not SessionManager.get('analysis_complete'):
+            analyze_resume(uploaded_file)
+
         if SessionManager.get('analysis_complete'):
             st.markdown('<div class="sidebar-rule"></div>', unsafe_allow_html=True)
             if st.button("Start a new analysis", width="stretch"):
@@ -159,6 +162,15 @@ def analyze_resume(uploaded_file):
             
             # Store resume text
             SessionManager.set('resume_text', resume_text)
+            
+            # Parse resume into structured JSON
+            try:
+                groq_analyzer = GroqResumeAnalyzer()
+                resume_json = groq_analyzer.parse_resume_to_json(resume_text)
+                SessionManager.set('resume_json', resume_json)
+            except Exception as e:
+                ErrorHandler.handle_api_error(e, "JSON parsing")
+                return
             
             # Perform ATS analysis
             ats_analyzer = ATSAnalyzer()
@@ -264,7 +276,7 @@ def display_landing(uploaded_file):
     action_col, note_col = st.columns([1, 1.35], gap="large")
     with action_col:
         if uploaded_file:
-            analyze_resume(uploaded_file)
+            st.info("Resume uploaded. Click 'Analyze this resume' in the sidebar to begin.")
         else:
             st.button("First upload a resume to continue", disabled=True, width="stretch")
 
@@ -452,10 +464,17 @@ def display_results():
         "Move from diagnosis to revision",
         "Open the detailed review for line-of-thought guidance on weaknesses and concrete enhancements.",
     )
-    action_col, spacer_col = st.columns([0.55, 1.45], gap="large")
+    action_col, edit_col, restart_col, spacer_col = st.columns([0.55, 0.55, 0.55, 0.35], gap="large")
     with action_col:
         if st.button("Open detailed review", type="primary", width="stretch"):
             SessionManager.set('show_detailed_analysis', True)
+            st.rerun()
+    with edit_col:
+        if st.button("Interactive Editor", width="stretch"):
+            st.switch_page("pages/1_Editor.py")
+    with restart_col:
+        if st.button("Analyze another resume", width="stretch"):
+            SessionManager.reset_analysis()
             st.rerun()
 
 

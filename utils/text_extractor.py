@@ -1,4 +1,4 @@
-import PyPDF2
+import pdfplumber
 import docx
 import io
 import streamlit as st
@@ -29,7 +29,7 @@ def extract_text_from_file(uploaded_file):
 
 def extract_text_from_pdf(uploaded_file):
     """
-    Extract text from PDF file using PyPDF2
+    Extract text from PDF file using pdfplumber
     
     Args:
         uploaded_file: Streamlit uploaded file object
@@ -45,13 +45,12 @@ def extract_text_from_pdf(uploaded_file):
         pdf_bytes = uploaded_file.read()
         pdf_file = io.BytesIO(pdf_bytes)
         
-        # Create PDF reader object
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        
-        # Extract text from all pages
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
-            text_content += page.extract_text() + "\n"
+        # Use pdfplumber to extract text
+        with pdfplumber.open(pdf_file) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text_content += extracted + "\n"
         
         # Clean up the extracted text
         text_content = clean_extracted_text(text_content)

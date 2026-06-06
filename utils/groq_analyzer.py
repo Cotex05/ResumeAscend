@@ -367,3 +367,114 @@ class GroqResumeAnalyzer:
         except Exception as e:
             print(f"Error generating dynamic detailed analysis: {e}")
             return {"weak_points": [], "enhancements": []}
+
+    def apply_resume_edits(self, resume_text: str, edit_prompt: str) -> str:
+        """Apply targeted edits to the resume text based on user prompt"""
+        
+        prompt = f"""
+        You are an expert resume writer. The user wants to edit their resume.
+        
+        Original Resume Text:
+        {resume_text}
+        
+        User's Edit Request:
+        {edit_prompt}
+        
+        Apply the requested changes to the resume text. 
+        Return ONLY the full, updated resume text in clear Markdown format.
+        DO NOT include any conversational text, explanations, or wrappers (like "Here is the updated resume").
+        Just the raw updated markdown text.
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are a professional resume editor. Return ONLY the edited markdown text without any preamble or explanation."},
+                    {"role": "user", "content": prompt}
+                ],
+                model=self.model,
+                temperature=0.3,
+                max_tokens=3000
+            )
+            
+            content = response.choices[0].message.content
+            if not content:
+                raise Exception("Empty response from AI model")
+                
+            return content.strip()
+            
+        except Exception as e:
+            print(f"Error applying resume edits: {e}")
+            return resume_text
+
+    def parse_resume_to_json(self, resume_text: str) -> dict:
+        """Parse raw resume text into a strict JSON schema"""
+        prompt = f"""
+        Extract the following resume text into a strict JSON object with EXACTLY these keys:
+        - name (string)
+        - title (string)
+        - summary (string)
+        - experience (array of strings, each string is a full job entry)
+        - education (array of strings, each string is a full education entry)
+        - skills (array of strings)
+
+        If a section is missing, return an empty array or string. Do not hallucinate.
+
+        Resume Text:
+        {resume_text}
+        
+        Return ONLY valid JSON. No markdown wrappers or additional text.
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are a precise data extraction tool. Return ONLY raw JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                model=self.model,
+                temperature=0.1,
+                max_tokens=3000
+            )
+            content = self.clean_json_content(response.choices[0].message.content)
+            parsed = json.loads(content)
+            # Ensure schema
+            for key in ['name', 'title', 'summary']:
+                if key not in parsed: parsed[key] = ""
+            for key in ['experience', 'education', 'skills']:
+                if key not in parsed or not isinstance(parsed[key], list): parsed[key] = []
+            return parsed
+        except Exception as e:
+            print(f"Error parsing resume to JSON: {e}")
+            return {"name": "", "title": "", "summary": "", "experience": [], "education": [], "skills": []}
+
+    def apply_json_edits(self, current_json: dict, edit_prompt: str) -> dict:
+        """Apply user edits to the current JSON state"""
+        prompt = f"""
+        You are an expert resume writer. Update the following JSON resume based on the user's instructions.
+        
+        Current Resume JSON:
+        {json.dumps(current_json, indent=2)}
+        
+        User's Edit Instructions:
+        {edit_prompt}
+        
+        Return the ENTIRE updated JSON object using the exact same schema.
+        Return ONLY valid JSON. No markdown wrappers.
+        """
+        try:
+            response = self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are a professional resume editor. Return ONLY raw JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                model=self.model,
+                temperature=0.3,
+                max_tokens=4000
+            )
+            content = self.clean_json_content(response.choices[0].message.content)
+            parsed = json.loads(content)
+            return parsed
+        except Exception as e:
+            print(f"Error applying JSON edits: {e}")
+            return current_json

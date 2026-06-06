@@ -1,34 +1,62 @@
 import re
 import string
+import spacy
+from spacy.matcher import PhraseMatcher
 from collections import Counter
 from typing import Dict, List, Tuple
+import logging
 
 class ATSAnalyzer:
     """
-    Comprehensive ATS (Applicant Tracking System) analyzer for resumes
+    Comprehensive ATS (Applicant Tracking System) analyzer for resumes,
+    powered by spaCy for production-grade accuracy.
     """
     
     def __init__(self):
-        # Common ATS-friendly keywords and skills
+        # Load spaCy NLP model
+        try:
+            self.nlp = spacy.load('en_core_web_sm')
+        except OSError:
+            # Fallback if not downloaded properly, though requirements stipulate it
+            from spacy.cli import download
+            download("en_core_web_sm")
+            self.nlp = spacy.load('en_core_web_sm')
+            
+        # Common ATS-friendly keywords and skills (Expanded)
         self.technical_skills = {
-            'programming': ['python', 'java', 'javascript', 'c++', 'sql', 'html', 'css', 'react', 'angular', 'node.js'],
-            'data_science': ['machine learning', 'data analysis', 'pandas', 'numpy', 'tensorflow', 'pytorch', 'scikit-learn'],
-            'business': ['project management', 'agile', 'scrum', 'leadership', 'strategic planning', 'business analysis'],
-            'design': ['photoshop', 'illustrator', 'figma', 'sketch', 'ui/ux', 'graphic design', 'web design'],
-            'marketing': ['seo', 'sem', 'google analytics', 'social media', 'content marketing', 'email marketing']
+            'programming': ['python', 'java', 'javascript', 'c++', 'c#', 'ruby', 'php', 'swift', 'kotlin', 'go', 'rust', 'typescript', 'sql', 'html', 'css', 'react', 'angular', 'vue', 'node.js', 'django', 'flask', 'spring'],
+            'data_science': ['machine learning', 'deep learning', 'data analysis', 'pandas', 'numpy', 'tensorflow', 'pytorch', 'scikit-learn', 'nlp', 'computer vision', 'matplotlib', 'seaborn', 'keras', 'sql', 'nosql', 'hadoop', 'spark'],
+            'business': ['project management', 'agile', 'scrum', 'leadership', 'strategic planning', 'business analysis', 'stakeholder management', 'kanban', 'six sigma', 'product management', 'pmp'],
+            'design': ['photoshop', 'illustrator', 'figma', 'sketch', 'ui/ux', 'graphic design', 'web design', 'invision', 'adobe creative suite', 'wireframing', 'prototyping'],
+            'marketing': ['seo', 'sem', 'google analytics', 'social media marketing', 'content marketing', 'email marketing', 'crm', 'hubspot', 'salesforce', 'growth hacking', 'b2b', 'b2c'],
+            'cloud_devops': ['aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins', 'ci/cd', 'terraform', 'ansible', 'linux', 'unix']
         }
         
-        # Common section headers that ATS looks for
-        self.expected_sections = [
-            'experience', 'education', 'skills', 'summary', 'objective',
-            'projects', 'certifications', 'achievements', 'awards'
-        ]
-        
-        # Action verbs that strengthen resumes
+        # Action verbs that strengthen resumes (Expanded)
         self.action_verbs = [
             'achieved', 'managed', 'led', 'developed', 'implemented', 'improved',
-            'increased', 'decreased', 'created', 'designed', 'analyzed', 'coordinated'
+            'increased', 'decreased', 'created', 'designed', 'analyzed', 'coordinated',
+            'orchestrated', 'spearheaded', 'executed', 'delivered', 'optimized', 'transformed',
+            'resolved', 'negotiated', 'streamlined', 'mentored', 'facilitated', 'pioneered',
+            'revamped', 'maximized', 'minimized', 'formulated', 'engineered', 'architected'
         ]
+        
+        # Buzzwords to penalize (fluff words)
+        self.buzzwords = [
+            'team player', 'synergy', 'think outside the box', 'go-getter',
+            'hard worker', 'detail-oriented', 'results-driven', 'dynamic',
+            'self-starter', 'thought leadership', 'rockstar', 'guru', 'ninja'
+        ]
+        
+        # Expected sections (Expanded variations)
+        self.expected_sections = {
+            'experience': ['experience', 'work experience', 'employment history', 'work history', 'professional experience', 'career history'],
+            'education': ['education', 'academic background', 'academic history', 'degrees'],
+            'skills': ['skills', 'technical skills', 'core competencies', 'expertise'],
+            'summary': ['summary', 'professional summary', 'executive summary', 'profile', 'objective'],
+            'projects': ['projects', 'personal projects', 'academic projects', 'portfolio'],
+            'certifications': ['certifications', 'licenses', 'training']
+        }
         
         # Common formatting issues
         self.formatting_flags = {
@@ -41,41 +69,43 @@ class ATSAnalyzer:
     def analyze_resume(self, resume_text: str) -> Dict:
         """
         Perform comprehensive ATS analysis of resume text
-        
-        Args:
-            resume_text (str): Full text content of the resume
-            
-        Returns:
-            Dict: Complete analysis results
         """
-        
-        # Prepare text for analysis
+        # Process text with spaCy
+        doc = self.nlp(resume_text)
         text_lower = resume_text.lower()
-        sentences = self._split_into_sentences(resume_text)
-        words = self._extract_words(text_lower)
+        
+        # Extract meaningful words (no stopwords, no punctuation)
+        words = [token.text.lower() for token in doc if not token.is_stop and not token.is_punct and not token.is_space]
+        sentences = list(doc.sents)
         
         # Perform individual analyses
-        keyword_score = self._analyze_keywords(text_lower, words)
+        keyword_score = self._analyze_keywords(text_lower, words, doc)
         formatting_score = self._analyze_formatting(resume_text)
-        content_score = self._analyze_content_quality(resume_text, sentences, words)
-        structure_score = self._analyze_structure(text_lower)
+        content_score = self._analyze_content_quality(resume_text, sentences, doc)
+        structure_score = self._analyze_structure(resume_text)
         
-        # Calculate overall score
+        # Industry-standard weighted calculation
         category_scores = {
             'keywords_skills': keyword_score,
-            'formatting': formatting_score,
+            'structure_organization': structure_score,
             'content_quality': content_score,
-            'structure_organization': structure_score
+            'formatting': formatting_score
         }
         
-        overall_score = sum(category_scores.values()) // len(category_scores)
+        # Weighted Overall Score (Keywords 35%, Structure 30%, Content 20%, Formatting 15%)
+        overall_score = (
+            (keyword_score * 0.35) +
+            (structure_score * 0.30) +
+            (content_score * 0.20) +
+            (formatting_score * 0.15)
+        )
+        overall_score = int(min(max(overall_score, 0), 100))
         
         # Generate recommendations and insights
-        recommendations = self._generate_recommendations(resume_text, category_scores)
+        recommendations = self._generate_recommendations(category_scores)
         strengths = self._identify_strengths(resume_text, category_scores)
         optimization_tips = self._generate_optimization_tips(category_scores)
         
-        # Count issues
         total_issues = len(recommendations)
         critical_issues = sum(1 for rec in recommendations if rec['severity'] == 'High')
         
@@ -89,57 +119,64 @@ class ATSAnalyzer:
             'optimization_tips': optimization_tips
         }
     
-    def _analyze_keywords(self, text_lower: str, words: List[str]) -> int:
-        """Analyze keyword density and relevance"""
-        
+    def _analyze_keywords(self, text_lower: str, words: List[str], doc) -> int:
+        """Analyze keyword density and relevance using NLP bounding"""
         score = 0
         word_count = len(words)
-        
         if word_count == 0:
             return 0
         
-        # Check for technical skills
+        # Check for technical skills using word boundaries to prevent substring matches
         skills_found = 0
         total_skills = sum(len(skills) for skills in self.technical_skills.values())
         
         for category, skills in self.technical_skills.items():
             for skill in skills:
-                if skill.lower() in text_lower:
+                # Use regex \b for exact word boundary match
+                if re.search(r'\b' + re.escape(skill.lower()) + r'\b', text_lower):
                     skills_found += 1
         
         # Skills coverage (40% of score)
-        skills_percentage = min((skills_found / total_skills) * 100, 100)
+        # Assuming finding 15 relevant skills is considered 100%
+        target_skills = 15
+        skills_percentage = min((skills_found / target_skills) * 100, 100)
         score += (skills_percentage * 0.4)
         
-        # Action verbs usage (30% of score)
-        action_verbs_found = sum(1 for verb in self.action_verbs if verb in text_lower)
-        action_verb_score = min((action_verbs_found / len(self.action_verbs)) * 100, 100)
-        score += (action_verb_score * 0.3)
+        # Action verbs usage (40% of score)
+        action_verbs_found = 0
+        for verb in self.action_verbs:
+            if re.search(r'\b' + re.escape(verb.lower()) + r'\b', text_lower):
+                action_verbs_found += 1
         
-        # Keyword density (30% of score)
+        target_verbs = 10
+        action_verb_score = min((action_verbs_found / target_verbs) * 100, 100)
+        score += (action_verb_score * 0.4)
+        
+        # Keyword density (without stopwords) (20% of score)
         unique_words = len(set(words))
         keyword_density = (unique_words / word_count) * 100 if word_count > 0 else 0
-        density_score = min(keyword_density * 2, 100)  # Normalize to 100
-        score += (density_score * 0.3)
+        # Optimal density is usually between 40-70% when stopwords are removed
+        if 40 <= keyword_density <= 80:
+            density_score = 100
+        else:
+            density_score = min(keyword_density * 1.5, 100)
+        
+        score += (density_score * 0.2)
         
         return min(int(score), 100)
     
     def _analyze_formatting(self, resume_text: str) -> int:
         """Analyze formatting consistency and ATS compatibility"""
-        
         score = 100
         
-        # Check for problematic characters
         special_chars = re.findall(self.formatting_flags['special_chars'], resume_text)
         if special_chars:
             score -= min(len(special_chars) * 2, 20)
         
-        # Check for excessive capitalization
         caps_issues = re.findall(self.formatting_flags['excessive_caps'], resume_text)
         if caps_issues:
             score -= min(len(caps_issues) * 5, 15)
         
-        # Check for contact information
         has_email = bool(re.search(self.formatting_flags['email_pattern'], resume_text))
         has_phone = bool(re.search(self.formatting_flags['phone_pattern'], resume_text))
         
@@ -147,199 +184,179 @@ class ATSAnalyzer:
             score -= 10
         if not has_phone:
             score -= 10
-        
-        # Check line length (too long lines can cause parsing issues)
+            
         lines = resume_text.split('\n')
-        long_lines = [line for line in lines if len(line) > 120]
+        long_lines = [line for line in lines if len(line) > 130]
         if long_lines:
             score -= min(len(long_lines) * 2, 15)
-        
+            
         return max(score, 0)
     
-    def _analyze_content_quality(self, resume_text: str, sentences: List[str], words: List[str]) -> int:
-        """Analyze content quality and professionalism"""
-        
+    def _analyze_content_quality(self, resume_text: str, sentences: List, doc) -> int:
+        """Analyze content quality with NLP and readability metrics"""
         score = 0
         
-        # Word count assessment (20% of score)
-        word_count = len(words)
-        if 200 <= word_count <= 800:
-            word_score = 100
-        elif word_count < 200:
-            word_score = (word_count / 200) * 100
-        else:
-            word_score = max(100 - ((word_count - 800) / 20), 50)
+        # Get raw words count (including stopwords but not punctuation)
+        raw_words = [token for token in doc if not token.is_punct and not token.is_space]
+        word_count = len(raw_words)
         
+        # 1. Length Assessment (20% of score)
+        if 300 <= word_count <= 1000:
+            word_score = 100
+        elif word_count < 300:
+            word_score = (word_count / 300) * 100
+        else:
+            word_score = max(100 - ((word_count - 1000) / 20), 50)
         score += word_score * 0.2
         
-        # Sentence length and readability (30% of score)
-        if sentences:
-            avg_sentence_length = sum(len(sentence.split()) for sentence in sentences) / len(sentences)
-            if 10 <= avg_sentence_length <= 25:
+        # 2. Readability (Flesch proxy) (30% of score)
+        if sentences and raw_words:
+            total_words = len(raw_words)
+            total_sentences = len(sentences)
+            # Rough syllable proxy: vowels per word
+            total_vowels = sum(len(re.findall(r'[aeiouy]', token.text.lower())) for token in raw_words)
+            total_syllables = max(total_vowels, total_words) # at least 1 per word
+            
+            # Flesch Reading Ease
+            flesch_score = 206.835 - 1.015 * (total_words / total_sentences) - 84.6 * (total_syllables / total_words)
+            
+            # Optimal resume readability is usually 30-60 (College level)
+            if 30 <= flesch_score <= 70:
                 readability_score = 100
-            elif avg_sentence_length < 10:
-                readability_score = (avg_sentence_length / 10) * 100
+            elif flesch_score > 70:
+                readability_score = max(100 - (flesch_score - 70), 50) # Too simple
             else:
-                readability_score = max(100 - ((avg_sentence_length - 25) * 3), 40)
+                readability_score = max(100 - (30 - flesch_score) * 2, 40) # Too complex
             
             score += readability_score * 0.3
         
-        # Quantified achievements (25% of score)
-        numbers = re.findall(r'\d+', resume_text)
-        percentages = re.findall(r'\d+%', resume_text)
-        achievements_score = min((len(numbers) + len(percentages) * 2) * 10, 100)
-        score += achievements_score * 0.25
+        # 3. High-Impact Quantified Achievements (35% of score)
+        # Differentiate between regular numbers and high impact (percentages, money, large numbers)
+        high_impact = re.findall(r'(\d+%|\$\d+[kmbKMB]?|\b\d{3,}\b)', resume_text)
+        regular_numbers = re.findall(r'\b\d+\b', resume_text)
         
-        # Professional language (25% of score)
-        professional_words = ['responsible', 'manage', 'develop', 'analyze', 'coordinate', 'implement']
-        professional_count = sum(1 for word in professional_words if word in resume_text.lower())
-        professional_score = min(professional_count * 20, 100)
-        score += professional_score * 0.25
+        achievements_score = min((len(high_impact) * 15) + (len(regular_numbers) * 5), 100)
+        score += achievements_score * 0.35
+        
+        # 4. Buzzword Penalty (15% of score)
+        buzzwords_found = 0
+        text_lower = resume_text.lower()
+        for buzz in self.buzzwords:
+            if re.search(r'\b' + re.escape(buzz) + r'\b', text_lower):
+                buzzwords_found += 1
+                
+        buzz_score = max(100 - (buzzwords_found * 20), 0)
+        score += buzz_score * 0.15
         
         return min(int(score), 100)
     
-    def _analyze_structure(self, text_lower: str) -> int:
-        """Analyze resume structure and organization"""
-        
+    def _analyze_structure(self, resume_text: str) -> int:
+        """Intelligent section header detection"""
         score = 0
+        lines = [line.strip().lower() for line in resume_text.split('\n') if line.strip()]
         
-        # Check for expected sections
-        sections_found = 0
-        for section in self.expected_sections:
-            if section in text_lower:
-                sections_found += 1
+        sections_found = set()
         
+        # Look for headers (typically short lines, maybe uppercase, or exact matches)
+        for line in lines:
+            # Clean the line
+            clean_line = re.sub(r'[^a-z\s]', '', line).strip()
+            # If line is short (less than 5 words), it might be a header
+            if len(clean_line.split()) <= 4:
+                for sec_key, variations in self.expected_sections.items():
+                    if clean_line in variations:
+                        sections_found.add(sec_key)
+                        
         # Section coverage (60% of score)
-        section_score = (sections_found / len(self.expected_sections)) * 100
+        expected_keys = list(self.expected_sections.keys())
+        section_score = (len(sections_found) / len(expected_keys)) * 100
         score += section_score * 0.6
         
-        # Check for proper contact information placement (20% of score)
-        first_quarter = text_lower[:len(text_lower)//4]
+        # Contact info placement (20% of score)
+        text_lower = resume_text.lower()
+        first_quarter = text_lower[:max(len(text_lower)//4, 1)]
         has_contact_info = bool(re.search(self.formatting_flags['email_pattern'], first_quarter))
         contact_score = 100 if has_contact_info else 50
         score += contact_score * 0.2
         
-        # Check for logical flow (20% of score)
-        # Experience should come before or after education
-        exp_pos = text_lower.find('experience')
-        edu_pos = text_lower.find('education')
+        # Logical flow (20% of score)
+        has_exp = 'experience' in sections_found
+        has_edu = 'education' in sections_found
         
-        if exp_pos != -1 and edu_pos != -1:
-            flow_score = 100  # Both sections present
-        elif exp_pos != -1 or edu_pos != -1:
-            flow_score = 70   # One section present
+        if has_exp and has_edu:
+            flow_score = 100
+        elif has_exp or has_edu:
+            flow_score = 70
         else:
-            flow_score = 30   # Neither section clearly identified
-        
+            flow_score = 30
+            
         score += flow_score * 0.2
-        
         return min(int(score), 100)
     
-    def _generate_recommendations(self, resume_text: str, category_scores: Dict[str, int]) -> List[Dict]:
+    def _generate_recommendations(self, category_scores: Dict[str, int]) -> List[Dict]:
         """Generate specific recommendations based on analysis"""
-        
         recommendations = []
         
-        # Keywords and Skills recommendations
         if category_scores['keywords_skills'] < 70:
             recommendations.append({
                 'category': 'Keywords & Skills',
                 'severity': 'High' if category_scores['keywords_skills'] < 50 else 'Medium',
-                'issue': 'Limited relevant keywords and technical skills detected',
-                'impact': 'ATS systems may not identify your resume as a match for relevant positions',
-                'recommendation': 'Add more industry-specific keywords, technical skills, and action verbs. Research job descriptions for target roles and incorporate relevant terminology.'
+                'issue': 'Limited relevant keywords and action verbs detected',
+                'impact': 'ATS systems score you lower if terminology does not match the job description',
+                'recommendation': 'Add more industry-specific hard skills. Start bullet points with strong action verbs (e.g., spearheaded, optimized).'
             })
-        
-        # Formatting recommendations
-        if category_scores['formatting'] < 70:
-            recommendations.append({
-                'category': 'Formatting',
-                'severity': 'High' if category_scores['formatting'] < 50 else 'Medium',
-                'issue': 'Formatting issues that may interfere with ATS parsing',
-                'impact': 'Poor formatting can cause ATS systems to misread or skip important information',
-                'recommendation': 'Use standard fonts, avoid special characters, ensure consistent formatting, and include clear contact information at the top.'
-            })
-        
-        # Content Quality recommendations
-        if category_scores['content_quality'] < 70:
-            recommendations.append({
-                'category': 'Content Quality',
-                'severity': 'Medium',
-                'issue': 'Content lacks quantified achievements or professional language',
-                'impact': 'Resume may not effectively demonstrate your value and impact',
-                'recommendation': 'Include specific numbers, percentages, and measurable achievements. Use professional action verbs and maintain appropriate length (300-600 words).'
-            })
-        
-        # Structure recommendations
+            
         if category_scores['structure_organization'] < 70:
             recommendations.append({
                 'category': 'Structure & Organization',
                 'severity': 'High' if category_scores['structure_organization'] < 50 else 'Medium',
-                'issue': 'Missing key sections or poor organization',
-                'impact': 'ATS systems expect standard resume sections in logical order',
-                'recommendation': 'Include standard sections: Contact Info, Summary/Objective, Experience, Education, Skills. Organize information in a logical, chronological order.'
+                'issue': 'Missing recognizable section headers',
+                'impact': 'ATS parsers may fail to extract your experience or education properly',
+                'recommendation': 'Use standard standalone headers like "Experience", "Education", and "Skills". Avoid creative section names.'
             })
-        
+            
+        if category_scores['content_quality'] < 70:
+            recommendations.append({
+                'category': 'Content Quality',
+                'severity': 'Medium',
+                'issue': 'Content lacks high-impact quantified metrics or uses too many buzzwords',
+                'impact': 'Resume may seem subjective rather than results-driven',
+                'recommendation': 'Remove clichés (e.g., "team player"). Include concrete metrics ($, %, counts) to quantify your achievements.'
+            })
+            
+        if category_scores['formatting'] < 70:
+            recommendations.append({
+                'category': 'Formatting',
+                'severity': 'High' if category_scores['formatting'] < 50 else 'Medium',
+                'issue': 'Formatting irregularities detected',
+                'impact': 'Can cause errors in ATS parsing, jumbling your text',
+                'recommendation': 'Ensure your contact info is at the very top. Remove special symbols, tables, and excessive capitalizations.'
+            })
+            
         return recommendations
     
     def _identify_strengths(self, resume_text: str, category_scores: Dict[str, int]) -> List[str]:
-        """Identify strengths in the resume"""
-        
         strengths = []
-        
         if category_scores['keywords_skills'] >= 80:
-            strengths.append("Strong keyword optimization with relevant technical skills")
-        
-        if category_scores['formatting'] >= 80:
-            strengths.append("Clean, ATS-friendly formatting and structure")
-        
-        if category_scores['content_quality'] >= 80:
-            strengths.append("High-quality content with quantified achievements")
-        
+            strengths.append("Excellent keyword optimization and action verb usage")
         if category_scores['structure_organization'] >= 80:
-            strengths.append("Well-organized with all essential resume sections")
-        
-        # Check for specific positive indicators
-        if re.search(r'\d+%', resume_text):
-            strengths.append("Includes quantified achievements with percentages")
-        
-        if re.search(self.formatting_flags['email_pattern'], resume_text) and re.search(self.formatting_flags['phone_pattern'], resume_text):
-            strengths.append("Complete contact information provided")
-        
+            strengths.append("Standard, easily parsable structure")
+        if category_scores['content_quality'] >= 80:
+            strengths.append("Results-driven content with good readability and metrics")
+        if category_scores['formatting'] >= 80:
+            strengths.append("Clean, ATS-friendly formatting")
+            
+        if re.search(r'(\d+%|\$\d+[kmbKMB]?)', resume_text):
+            strengths.append("Includes high-impact quantified achievements (e.g., percentages/financials)")
+            
         return strengths
     
     def _generate_optimization_tips(self, category_scores: Dict[str, int]) -> List[str]:
-        """Generate general optimization tips"""
-        
-        tips = []
-        
-        # Always include general tips
-        tips.extend([
-            "Use standard section headings like 'Experience', 'Education', 'Skills'",
-            "Save your resume as both PDF and Word formats for different ATS systems",
-            "Tailor your resume keywords to match specific job descriptions",
-            "Keep formatting simple and avoid tables, graphics, or columns",
-            "Use bullet points for easy scanning and parsing"
-        ])
-        
-        # Add specific tips based on scores
-        if category_scores['keywords_skills'] < 80:
-            tips.append("Research industry-specific keywords and incorporate them naturally")
-        
+        tips = [
+            "Always tailor your resume keywords to closely match the specific job description.",
+            "Save your resume as a standard PDF to preserve layout, but ensure it's text-searchable.",
+            "Avoid multi-column layouts, graphics, or tables, as older ATS cannot read them."
+        ]
         if category_scores['content_quality'] < 80:
-            tips.append("Quantify your achievements with specific numbers and percentages")
-        
+            tips.append("Use the XYZ formula for bullets: Accomplished [X] as measured by [Y], by doing [Z].")
         return tips
-    
-    # Helper methods
-    def _split_into_sentences(self, text: str) -> List[str]:
-        """Split text into sentences"""
-        sentences = re.split(r'[.!?]+', text)
-        return [s.strip() for s in sentences if s.strip()]
-    
-    def _extract_words(self, text: str) -> List[str]:
-        """Extract words from text"""
-        # Remove punctuation and split into words
-        text_clean = text.translate(str.maketrans('', '', string.punctuation))
-        words = [word for word in text_clean.split() if word.strip()]
-        return words
