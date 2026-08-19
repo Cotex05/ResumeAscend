@@ -3,14 +3,23 @@ Configuration module for AI Resume Screening Tool
 Handles environment variables and application settings
 """
 import os
+import logging
 from typing import Optional
+
+# Suppress Streamlit file watcher and transformers inspection warnings
+logging.getLogger("streamlit.watcher.local_sources_watcher").setLevel(logging.ERROR)
+try:
+    import transformers.utils.logging as tf_logging
+    tf_logging.set_verbosity_error()
+except Exception:
+    pass
 
 class Config:
     """Application configuration class"""
     
     # API Configuration
     GROQ_API_KEY: Optional[str] = os.getenv("GROQ_API_KEY")
-    GROQ_MODEL: str = "llama-3.1-8b-instant"
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
     
     # Application Settings
     MAX_FILE_SIZE_MB: int = 10
@@ -24,13 +33,12 @@ class Config:
     @classmethod
     def validate_config(cls) -> bool:
         """Validate required configuration"""
-        if not cls.GROQ_API_KEY:
-            return False
-        return True
+        return bool(os.getenv("GROQ_API_KEY") or cls.GROQ_API_KEY)
     
     @classmethod
     def get_groq_api_key(cls) -> str:
         """Get Groq API key with validation"""
-        if not cls.GROQ_API_KEY:
+        api_key = os.getenv("GROQ_API_KEY") or cls.GROQ_API_KEY
+        if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is required")
-        return cls.GROQ_API_KEY
+        return api_key

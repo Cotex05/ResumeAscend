@@ -1,7 +1,17 @@
-import streamlit as st
+import logging
 import os
 import sys
 import copy
+
+# Suppress Streamlit file watcher and transformers inspection warnings
+logging.getLogger("streamlit.watcher.local_sources_watcher").setLevel(logging.ERROR)
+try:
+    import transformers.utils.logging as tf_logging
+    tf_logging.set_verbosity_error()
+except Exception:
+    pass
+
+import streamlit as st
 
 # Ensure imports work when run from pages folder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

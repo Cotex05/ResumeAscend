@@ -3,8 +3,17 @@ AI Resume Screening Tool - Main Application
 Clean, modular architecture with environment variable support
 """
 
-from html import escape
+import logging
 import os
+from html import escape
+
+# Suppress Streamlit file watcher and transformers inspection warnings
+logging.getLogger("streamlit.watcher.local_sources_watcher").setLevel(logging.ERROR)
+try:
+    import transformers.utils.logging as tf_logging
+    tf_logging.set_verbosity_error()
+except Exception:
+    pass
 
 import streamlit as st
 from dotenv import load_dotenv

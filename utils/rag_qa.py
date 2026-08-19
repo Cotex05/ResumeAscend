@@ -11,6 +11,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from typing import Optional, Dict
 import streamlit as st
+from config import Config
 
 
 class ResumeRAG:
@@ -71,7 +72,7 @@ class ResumeRAG:
             # Step 4: Initialize LLM
             llm = ChatGroq(
                 temperature=0.2,
-                model_name="llama-3.1-8b-instant",
+                model_name=Config.GROQ_MODEL,
                 groq_api_key=self.api_key,
                 max_tokens=500
             )
